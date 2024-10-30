@@ -1,12 +1,9 @@
-﻿using System.Data;
+﻿using System.Data.Common;
 using Npgsql;
 
 namespace CompanyHierarchy.Infrastructure.Data;
 
 public class NpgsqlConnectionFactory(string connectionString) : IDbConnectionFactory
 {
-    public IDbConnection CreateConnection()
-    {
-        return new NpgsqlConnection(connectionString);
-    }
+    public DbConnection CreateConnection() => new NpgsqlConnection(connectionString);
 }

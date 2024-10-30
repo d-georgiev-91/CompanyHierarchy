@@ -11,11 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAutoMapper(typeof(EmployeeProfile));
 
-// Add services to the container.
+// AddAsync services to the container.
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
 builder.Services.AddSingleton<IDbConnectionFactory>(sp =>
-    new NpgsqlConnectionFactory(builder.Configuration.GetConnectionString("DefaultConnection")));
+    new NpgsqlConnectionFactory(builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("DbConnection string missing")));
 
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 

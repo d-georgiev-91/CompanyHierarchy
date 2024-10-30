@@ -10,8 +10,8 @@ public class GetAllEmployeesWithManagedEmployeesQueryHandler(IEmployeeRepository
 {
     public async Task<Result<IEnumerable<EmployeeResponse>>> Handle(GetAllEmployeesWithManagedEmployeesQuery request, CancellationToken cancellationToken)
     {
-        var response = mapper.Map<IEnumerable<EmployeeResponse>>(employeeRepository.GetAll());
+        var response = mapper.Map<IEnumerable<EmployeeResponse>>(await employeeRepository.GetAllAsync(cancellationToken));
 
-        return await Task.FromResult(Result.Success(response));
+        return Result.Success(response);
     }
 }

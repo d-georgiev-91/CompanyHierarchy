@@ -14,10 +14,10 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         command.Parameters.Add(parameter);
     }
 
-    public int Add(Employee employee)
+    public async Task<int> AddAsync(Employee employee, CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        using var command = connection.CreateCommand();
+        await using var connection = connectionFactory.CreateConnection();
+        await using var command = connection.CreateCommand();
         command.CommandText = @"
             INSERT INTO Employees (FullName, Title, ManagerEmployeeId)
             VALUES (@FullName, @Title, @ManagerEmployeeId)
@@ -28,18 +28,18 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         AddParameter(command, "@Title", employee.Title);
         AddParameter(command, "@ManagerEmployeeId", employee.ManagerEmployeeId.HasValue ? employee.ManagerEmployeeId.Value : DBNull.Value);
 
-        connection.Open();
-        var result = command.ExecuteScalar();
-        connection.Close();
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
         var newEmployeeId = Convert.ToInt32(result);
 
         return newEmployeeId;
     }
 
-    public void Update(Employee employee)
+    public async Task UpdateAsync(Employee employee, CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        using var command = connection.CreateCommand();
+        await using var connection = connectionFactory.CreateConnection();
+        await using var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE Employees
             SET FullName = @FullName,
@@ -53,21 +53,21 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         AddParameter(command, "@ManagerEmployeeId", employee.ManagerEmployeeId.HasValue ? employee.ManagerEmployeeId.Value : DBNull.Value);
         AddParameter(command, "@EmployeeId", employee.EmployeeId);
 
-        connection.Open();
-        command.ExecuteNonQuery();
-        connection.Close();
+        await connection.OpenAsync(cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.CloseAsync();
     }
 
-    public void Delete(int id)
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        connection.Open();
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
 
-        using var transaction = connection.BeginTransaction();
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            using var reassignCommand = connection.CreateCommand();
+            await using var reassignCommand = connection.CreateCommand();
             reassignCommand.Transaction = transaction;
             reassignCommand.CommandText = @"
                     UPDATE Employees
@@ -77,33 +77,32 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
                     WHERE ManagerEmployeeId = @EmployeeId;
                 ";
             AddParameter(reassignCommand, "@EmployeeId", id);
-            reassignCommand.ExecuteNonQuery();
+            await reassignCommand.ExecuteNonQueryAsync(cancellationToken);
 
-            using var deleteCommand = connection.CreateCommand();
+            await using var deleteCommand = connection.CreateCommand();
             deleteCommand.Transaction = transaction;
             deleteCommand.CommandText = "DELETE FROM Employees WHERE EmployeeId = @EmployeeId;";
             AddParameter(deleteCommand, "@EmployeeId", id);
-            deleteCommand.ExecuteNonQuery();
+            await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
 
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
         }
         catch(InvalidOperationException)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             throw;
         }
         finally
         {
-            connection.Close();
+            await connection.CloseAsync();
         }
     }
 
-    public Employee? GetByIdWithManagedEmployees(int id)
+    public async Task<Employee?> GetByIdWithManagedEmployeesAsync(int id, CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        connection.Open();
+        await using var connection = connectionFactory.CreateConnection();
 
-        using var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = @"
             WITH RECURSIVE EmployeeCTE AS (
                 SELECT EmployeeId, FullName, Title, ManagerEmployeeId
@@ -119,11 +118,12 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
 
         AddParameter(command, "@EmployeeId", id);
 
-        using var reader = command.ExecuteReader();
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var employees = new Dictionary<int, Employee>();
 
-        while (reader.Read())
+        while (await reader.ReadAsync(cancellationToken))
         {
             var employeeId = reader.GetInt32(reader.GetOrdinal("EmployeeId"));
             var fullName = reader.GetString(reader.GetOrdinal("FullName"));
@@ -162,12 +162,12 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         return rootEmployee;
     }
 
-    public IEnumerable<Employee> GetAll()
+    public async Task<IEnumerable<Employee>> GetAllAsync(CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        connection.Open();
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
 
-        using var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = @"
             WITH RECURSIVE EmployeeHierarchy AS (
                 SELECT 
@@ -193,11 +193,11 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
             SELECT * FROM EmployeeHierarchy ORDER BY Path;
         ";
 
-        using var reader = command.ExecuteReader();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var employees = new Dictionary<int, Employee>();
 
-        while (reader.Read())
+        while (await reader.ReadAsync(cancellationToken))
         {
             var employeeId = reader.GetInt32(reader.GetOrdinal("EmployeeId"));
             var fullName = reader.GetString(reader.GetOrdinal("FullName"));
@@ -225,10 +225,10 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         return employees.Values.Where(e => e.ManagerEmployeeId == null).ToList();
     }
 
-    public bool Exists(int id)
+    public async Task<bool> ExistsAsync(int id, CancellationToken cancellationToken)
     {
-        using var connection = connectionFactory.CreateConnection();
-        using var command = connection.CreateCommand();
+        await using var connection = connectionFactory.CreateConnection();
+        await using var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT 1
             FROM Employees
@@ -238,9 +238,9 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
 
         AddParameter(command, "@EmployeeId", id);
 
-        connection.Open();
-        var result = command.ExecuteScalar();
-        connection.Close();
+        await connection.OpenAsync(cancellationToken);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        await connection.CloseAsync();
 
         return result != null;
     }

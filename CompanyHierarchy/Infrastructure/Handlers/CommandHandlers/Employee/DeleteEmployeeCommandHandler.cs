@@ -12,16 +12,16 @@ public class DeleteEmployeeCommandHandler(IEmployeeRepository employeeRepository
     {
         try
         {
-            employeeRepository.Delete(request.EmployeeId);
+            await employeeRepository.DeleteAsync(request.EmployeeId, cancellationToken);
         }
         catch (InvalidOperationException)
         {
             // TODO: Log deletion failed into future logger
-            return await Task.FromResult(Result.Failure<EmployeeResponse>(new Error(
+            return Result.Failure<EmployeeResponse>(new Error(
                 Domain.ErrorCodes.Employee.InvalidOperation,
-                $"The employee with Id {request.EmployeeId} was not removed")));
+                $"The employee with Id {request.EmployeeId} was not removed"));
         }
 
-        return await Task.FromResult(Result.Success());
+        return Result.Success();
     }
 }

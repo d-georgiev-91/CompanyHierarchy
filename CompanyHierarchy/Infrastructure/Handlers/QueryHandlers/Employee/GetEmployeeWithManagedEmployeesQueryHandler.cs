@@ -10,17 +10,17 @@ public class GetEmployeeWithManagedEmployeesQueryHandler(IEmployeeRepository emp
 {
     public async Task<Result<EmployeeResponse>> Handle(GetEmployeeWithManagedEmployeesQuery request, CancellationToken cancellationToken)
     {
-        var employee = employeeRepository.GetByIdWithManagedEmployees(request.EmployeeId);
+        var employee = await employeeRepository.GetByIdWithManagedEmployeesAsync(request.EmployeeId, cancellationToken);
 
         if (employee is null)
         {
-            return await Task.FromResult(Result.Failure<EmployeeResponse>(new Error(
+            return Result.Failure<EmployeeResponse>(new Error(
                 Domain.ErrorCodes.Employee.NotFound,
-                $"The employee with Id {request.EmployeeId} was not found")));
+                $"The employee with Id {request.EmployeeId} was not found"));
         }
 
         var response = mapper.Map<EmployeeResponse>(employee);
-        
-        return await Task.FromResult(response);
+
+        return response;
     }
 }

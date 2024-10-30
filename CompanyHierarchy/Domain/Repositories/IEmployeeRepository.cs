@@ -4,15 +4,15 @@ namespace CompanyHierarchy.Domain.Repositories;
 
 public interface IEmployeeRepository
 {
-    int Add(Employee employee);
+    Task<int> AddAsync(Employee employee, CancellationToken cancellationToken);
 
-    void Update(Employee employee);
+    Task UpdateAsync(Employee employee, CancellationToken cancellationToken);
 
-    void Delete(int id);
+    Task DeleteAsync(int id, CancellationToken cancellationToken);
 
-    Employee? GetByIdWithManagedEmployees(int id);
+    Task<Employee?> GetByIdWithManagedEmployeesAsync(int id, CancellationToken cancellationToken);
 
-    IEnumerable<Employee> GetAll();
+    Task<IEnumerable<Employee>> GetAllAsync(CancellationToken cancellationToken);
 
-    bool Exists(int id);
+    Task<bool> ExistsAsync(int id, CancellationToken cancellationToken);
 }

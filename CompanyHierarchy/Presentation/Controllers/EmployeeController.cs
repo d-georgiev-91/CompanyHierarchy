@@ -15,10 +15,10 @@ public class EmployeeController(ISender sender, IMapper mapper) : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Put(Employee employee)
+    public async Task<IActionResult> Put(Employee employee, CancellationToken cancellationToken)
     {
         var upsertEmployeeCommand = mapper.Map<UpsertEmployeeCommand>(employee);
-        var result = await sender.Send(upsertEmployeeCommand);
+        var result = await sender.Send(upsertEmployeeCommand, cancellationToken);
 
         switch (result)
         {
@@ -39,10 +39,10 @@ public class EmployeeController(ISender sender, IMapper mapper) : ControllerBase
     [HttpGet("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Get(int id)
+    public async Task<IActionResult> Get(int id, CancellationToken cancellationToken)
     {
         var query = new GetEmployeeWithManagedEmployeesQuery { EmployeeId = id };
-        var result = await sender.Send(query);
+        var result = await sender.Send(query, cancellationToken);
 
         if (result is { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.NotFound })
         {
@@ -55,9 +55,9 @@ public class EmployeeController(ISender sender, IMapper mapper) : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new GetAllEmployeesWithManagedEmployeesQuery());
+        var result = await sender.Send(new GetAllEmployeesWithManagedEmployeesQuery(), cancellationToken);
 
         var response = mapper.Map<IEnumerable<EmployeeWithManagedEmployees>>(result.Value);
 
@@ -67,9 +67,9 @@ public class EmployeeController(ISender sender, IMapper mapper) : ControllerBase
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new DeleteEmployeeCommand { EmployeeId = id });
+        var result = await sender.Send(new DeleteEmployeeCommand { EmployeeId = id }, cancellationToken);
 
         if (result is { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.InvalidOperation })
         {
