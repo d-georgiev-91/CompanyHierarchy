@@ -1,8 +1,6 @@
-using MediatR;
+namespace CompanyHierarchy.Domain.Commands.Employee;
 
-namespace CompanyHierarchy.Domain.Commands;
-
-public class UpsertEmployeeCommand : IRequest<int>
+public class UpsertEmployeeCommand : ICommand<int>
 {
     public int EmployeeId { get; set; }
 

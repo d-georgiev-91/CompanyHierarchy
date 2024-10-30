@@ -1,9 +1,9 @@
 using AutoMapper;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using CompanyHierarchy.Domain.Commands;
 using CompanyHierarchy.Presentation.Models;
-using CompanyHierarchy.Domain.Queries;
+using CompanyHierarchy.Domain.Queries.Employee;
+using CompanyHierarchy.Domain.Commands.Employee;
 
 namespace CompanyHierarchy.Presentation.Controllers;
 
@@ -12,48 +12,70 @@ namespace CompanyHierarchy.Presentation.Controllers;
 public class EmployeeController(ISender sender, IMapper mapper) : ControllerBase
 {
     [HttpPut]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Put(Employee employee)
     {
         var upsertEmployeeCommand = mapper.Map<UpsertEmployeeCommand>(employee);
         var result = await sender.Send(upsertEmployeeCommand);
 
-        if (upsertEmployeeCommand.EmployeeId == default)
+        switch (result)
         {
-            return CreatedAtAction(nameof(Get), new { EmployeeId = result });
+            case { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.NotFound }:
+                return NotFound(result.Error);
+            case { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.InvalidOperation }:
+                return BadRequest(result.Error);
+        }
+
+        if (employee.EmployeeId == default)
+        {
+            return CreatedAtAction(nameof(Get), new { EmployeeId = result.Value });
         }
 
         return Ok();
     }
 
     [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Get(int id)
     {
         var query = new GetEmployeeWithManagedEmployeesQuery { EmployeeId = id };
-        var employee = await sender.Send(query);
+        var result = await sender.Send(query);
 
-        if (employee == null)
+        if (result is { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.NotFound })
         {
-            return NotFound();
+            return NotFound(result.Error);
         }
 
-        var result = mapper.Map<EmployeeWithManagedEmployees>(employee);
-        return Ok(result);
+        var employees = mapper.Map<EmployeeWithManagedEmployees>(result.Value);
+        return Ok(employees);
     }
 
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Get()
     {
-        var employees = await sender.Send(new GetAllEmployeesWithManagedEmployeesQuery());
+        var result = await sender.Send(new GetAllEmployeesWithManagedEmployeesQuery());
 
-        var employeeModels = mapper.Map<IEnumerable<EmployeeWithManagedEmployees>>(employees);
+        var response = mapper.Map<IEnumerable<EmployeeWithManagedEmployees>>(result.Value);
 
-        return Ok(employeeModels);
+        return Ok(response);
     }
 
     [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Delete(int id)
     {
-        await sender.Send(new DeleteEmployeeCommand { EmployeeId = id});
+        var result = await sender.Send(new DeleteEmployeeCommand { EmployeeId = id });
+
+        if (result is { IsFailure: true, Error.Code: Domain.ErrorCodes.Employee.InvalidOperation })
+        {
+            return BadRequest(result.Error);
+        }
+
         return NoContent();
     }
 }

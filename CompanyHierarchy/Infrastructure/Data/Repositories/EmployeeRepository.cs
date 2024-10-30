@@ -87,9 +87,10 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
 
             transaction.Commit();
         }
-        catch
+        catch(InvalidOperationException)
         {
             transaction.Rollback();
+            throw;
         }
         finally
         {
@@ -222,5 +223,25 @@ public class EmployeeRepository(IDbConnectionFactory connectionFactory) : IEmplo
         }
 
         return employees.Values.Where(e => e.ManagerEmployeeId == null).ToList();
+    }
+
+    public bool Exists(int id)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT 1
+            FROM Employees
+            WHERE EmployeeId = @EmployeeId
+            LIMIT 1;
+        ";
+
+        AddParameter(command, "@EmployeeId", id);
+
+        connection.Open();
+        var result = command.ExecuteScalar();
+        connection.Close();
+
+        return result != null;
     }
 }
