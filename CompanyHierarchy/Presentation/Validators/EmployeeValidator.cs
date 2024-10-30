@@ -9,5 +9,6 @@ public class EmployeeValidator : AbstractValidator<Employee>
     {
         RuleFor(employee => employee.FullName).NotEmpty().MaximumLength(100);
         RuleFor(employee => employee.Title).NotEmpty().MaximumLength(100);
+        RuleFor(employee => employee.ManagerEmployeeId).NotEqual(employee => employee.EmployeeId).WithMessage("An employee cannot be their own manager.");
     }
 }
